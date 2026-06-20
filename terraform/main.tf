@@ -16,7 +16,7 @@ provider "aws" {
   region                  = var.aws_region
   access_key              = var.aws_access_key
   secret_key              = var.aws_secret_key
-  shared_credentials_file = var.aws_shared_credentials_file
+  shared_credentials_file = [var.aws_shared_credentials_file]
   profile                 = var.aws_profile
 }
 
