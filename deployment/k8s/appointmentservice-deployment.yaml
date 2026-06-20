@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appointmentservice
+  labels:
+    app: appointmentservice
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: appointmentservice
+  template:
+    metadata:
+      labels:
+        app: appointmentservice
+    spec:
+      containers:
+        - name: appointmentservice
+          image: vikash3117/appointmentservice:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: DB_HOST
+              value: "your-db-host"
+            - name: DB_USER
+              value: "your-db-user"
+            - name: DB_PASSWORD
+              value: "your-db-pass"
+            - name: DB_NAME
+              value: "your-db-name"
+            - name: DB_DIALECT
+              value: "mysql"
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: appointmentservice
+spec:
+  selector:
+    app: appointmentservice
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer

@@ -10,6 +10,10 @@ pipeline {
     DOCKER_REGISTRY = 'docker.io'
     DOCKER_REPO = 'vikash3117/appointmentservice'
     REPO_URL = 'https://github.com/vikashsum/AppointmentService.git'
+    TERRAFORM_DIR = 'terraform'
+    K8S_DIR = 'deployment/k8s'
+    EKS_CLUSTER_NAME = 'appointmentservice-eks-cluster'
+    AWS_REGION = 'us-east-1'
   }
 
   stages {
@@ -45,6 +49,52 @@ pipeline {
               docker push ${IMAGE}
 
               echo "Image pushed successfully: ${IMAGE}"
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Terraform Init') {
+      steps {
+        echo '====== Initializing Terraform ======'
+        dir("${TERRAFORM_DIR}") {
+          sh 'terraform init -input=false'
+        }
+      }
+    }
+
+    stage('Terraform Plan') {
+      steps {
+        echo '====== Planning Terraform ======'
+        dir("${TERRAFORM_DIR}") {
+          sh 'terraform plan -out=tfplan -input=false'
+        }
+      }
+    }
+
+    stage('Terraform Apply') {
+      steps {
+        echo '====== Applying Terraform ======'
+        dir("${TERRAFORM_DIR}") {
+          sh 'terraform apply -input=false -auto-approve tfplan'
+        }
+      }
+    }
+
+    stage('Deploy to EKS') {
+      steps {
+        echo '====== Deploying to EKS ======'
+        script {
+          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            sh '''
+              export AWS_REGION=${AWS_REGION}
+              export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+              export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+              aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER_NAME}
+              kubectl apply -k ${K8S_DIR}
+              kubectl rollout status deployment/appointmentservice --namespace default --timeout=180s
             '''
           }
         }

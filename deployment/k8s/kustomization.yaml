@@ -1,0 +1,2 @@
+resources:
+  - appointmentservice-deployment.yaml
