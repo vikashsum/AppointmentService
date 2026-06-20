@@ -1,9 +1,14 @@
 pipeline {
   agent any
 
+  parameters {
+    string(name: 'TAG_NAME', defaultValue: 'latest', description: 'Docker image tag to push (e.g. tagname)')
+  }
+
   environment {
     DOCKER_IMAGE = "appointmentservice:${BUILD_NUMBER}"
     DOCKER_REGISTRY = 'docker.io'
+    DOCKER_REPO = 'vikash3117/appointmentservice'
     REPO_URL = 'https://github.com/vikashsum/AppointmentService.git'
   }
 
@@ -33,12 +38,12 @@ pipeline {
               echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
               
               echo "Tagging image..."
-              IMAGE=${DOCKER_REGISTRY}/${DOCKER_USER}/${DOCKER_IMAGE}
+              IMAGE=${DOCKER_REPO}:${TAG_NAME}
               docker tag ${DOCKER_IMAGE} ${IMAGE}
-              
+
               echo "Pushing image to Docker Hub..."
               docker push ${IMAGE}
-              
+
               echo "Image pushed successfully: ${IMAGE}"
             '''
           }
