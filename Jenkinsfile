@@ -11,7 +11,7 @@ pipeline {
     stage('Checkout') {
       steps {
         echo '====== Checking out repository ======'
-        git branch: 'main', url: '${REPO_URL}'
+        git branch: 'main', url: "${REPO_URL}"
       }
     }
 
