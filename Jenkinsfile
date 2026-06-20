@@ -1,12 +1,12 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        DOCKER_IMAGE = "appointmentservice:${BUILD_NUMBER}"
-        DOCKER_REGISTRY = 'docker.io'
-        DB_HOST = 'localhost'
-        DB_PORT = '3306'
-        DB_NAME = 'appointment_db'
+  environment {
+    DOCKER_IMAGE = "appointmentservice:${BUILD_NUMBER}"
+    DOCKER_REGISTRY = 'docker.io'
+    DB_HOST = 'localhost'
+    DB_PORT = '3306'
+    DB_NAME = 'appointment_db'
     NODE_ENV = 'test'
   }
 
@@ -61,7 +61,20 @@ pipeline {
                 -e DB_PORT=${DB_PORT} \
                 -e DB_NAME=${DB_NAME} \
                 -e NODE_ENV=production \
-        success { echo '✅ Appointment Service pipeline completed' }
-        failure { echo '❌ Appointment Service pipeline failed' }
+                --name appointmentservice ${IMAGE}
+            '''
+          }
+        }
+      }
     }
+  }
+
+  post {
+    success {
+      echo '✅ Appointment Service pipeline completed'
+    }
+    failure {
+      echo '❌ Appointment Service pipeline failed'
+    }
+  }
 }
