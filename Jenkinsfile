@@ -34,8 +34,19 @@ pipeline {
     stage('Terraform Init') {
       steps {
         echo '====== Initializing Terraform ======'
-        dir("${TERRAFORM_DIR}") {
-          sh 'terraform init -input=false'
+        script {
+          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            dir("${TERRAFORM_DIR}") {
+              sh '''
+                export AWS_REGION=${AWS_REGION}
+                export AWS_DEFAULT_REGION=${AWS_REGION}
+                export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+                export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+                terraform init -input=false
+              '''
+            }
+          }
         }
       }
     }
@@ -43,15 +54,24 @@ pipeline {
     stage('Terraform Plan') {
       steps {
         echo '====== Planning ECS Terraform ======'
-        dir("${TERRAFORM_DIR}") {
-          sh '''
-            terraform plan -out=tfplan -input=false \
-              -var "appointment_image=${APPOINTMENT_IMAGE}" \
-              -var "patient_image=${PATIENT_IMAGE}" \
-              -var "doctor_image=${DOCTOR_IMAGE}" \
-              -var "portal_image=${PORTAL_IMAGE}" \
-              -var "image_tag=${TAG_NAME}"
-          '''
+        script {
+          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            dir("${TERRAFORM_DIR}") {
+              sh '''
+                export AWS_REGION=${AWS_REGION}
+                export AWS_DEFAULT_REGION=${AWS_REGION}
+                export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+                export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+                terraform plan -out=tfplan -input=false \
+                  -var "appointment_image=${APPOINTMENT_IMAGE}" \
+                  -var "patient_image=${PATIENT_IMAGE}" \
+                  -var "doctor_image=${DOCTOR_IMAGE}" \
+                  -var "portal_image=${PORTAL_IMAGE}" \
+                  -var "image_tag=${TAG_NAME}"
+              '''
+            }
+          }
         }
       }
     }
@@ -61,14 +81,16 @@ pipeline {
         echo '====== Applying ECS Terraform ======'
         script {
           withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            sh '''
-              export AWS_REGION=${AWS_REGION}
-              export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-              export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            dir("${TERRAFORM_DIR}") {
+              sh '''
+                export AWS_REGION=${AWS_REGION}
+                export AWS_DEFAULT_REGION=${AWS_REGION}
+                export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+                export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
-              cd ${TERRAFORM_DIR}
-              terraform apply -input=false -auto-approve tfplan
-            '''
+                terraform apply -input=false -auto-approve tfplan
+              '''
+            }
           }
         }
       }
@@ -77,8 +99,19 @@ pipeline {
     stage('Show Load Balancer') {
       steps {
         echo '====== ECS Load Balancer DNS ======'
-        dir("${TERRAFORM_DIR}") {
-          sh 'terraform output -raw lb_dns_name'
+        script {
+          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+            dir("${TERRAFORM_DIR}") {
+              sh '''
+                export AWS_REGION=${AWS_REGION}
+                export AWS_DEFAULT_REGION=${AWS_REGION}
+                export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+                export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+                terraform output -raw lb_dns_name
+              '''
+            }
+          }
         }
       }
     }
