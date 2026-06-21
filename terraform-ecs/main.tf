@@ -296,6 +296,8 @@ resource "aws_ecs_service" "appointmentservice" {
   service_registries {
     registry_arn = aws_service_discovery_service.appointmentservice.arn
   }
+
+  depends_on = [aws_lb_listener_rule.appointmentservice]
 }
 
 resource "aws_ecs_service" "patientservice" {
@@ -320,6 +322,8 @@ resource "aws_ecs_service" "patientservice" {
   service_registries {
     registry_arn = aws_service_discovery_service.patientservice.arn
   }
+
+  depends_on = [aws_lb_listener_rule.patientservice]
 }
 
 resource "aws_ecs_service" "doctorservice" {
@@ -344,6 +348,8 @@ resource "aws_ecs_service" "doctorservice" {
   service_registries {
     registry_arn = aws_service_discovery_service.doctorservice.arn
   }
+
+  depends_on = [aws_lb_listener_rule.doctorservice]
 }
 
 resource "aws_ecs_service" "patientportal" {
@@ -364,6 +370,8 @@ resource "aws_ecs_service" "patientportal" {
     container_name   = "patient-portal"
     container_port   = 80
   }
+
+  depends_on = [aws_lb_listener_rule.patientportal]
 }
 
 resource "aws_lb" "app" {
