@@ -22,30 +22,22 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+
+                sh '''
+                echo "Workspace structure:"
+                pwd
+                ls -la
+                echo "Terraform directory check:"
+                ls -la terraform-ecs || true
+                '''
             }
         }
 
         stage('Terraform Format') {
             steps {
                 dir("${TERRAFORM_DIR}") {
-                    sh 'terraform fmt -recursive'
-                }
-            }
-        }
-
-        stage('Verify AWS Credentials') {
-            steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-
                     sh '''
-                    export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                    aws sts get-caller-identity
+                    terraform fmt -recursive
                     '''
                 }
             }
@@ -53,22 +45,17 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
+                dir("${TERRAFORM_DIR}") {
+                    sh '''
+                    set -e
+                    export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                    dir("${TERRAFORM_DIR}") {
+                    echo "Running in:"
+                    pwd
+                    ls -la
 
-                        sh '''
-                        export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                        terraform init -reconfigure -input=false
-                        '''
-
-                    }
+                    terraform init -reconfigure -input=false
+                    '''
                 }
             }
         }
@@ -76,28 +63,21 @@ pipeline {
         stage('Terraform Validate') {
             steps {
                 dir("${TERRAFORM_DIR}") {
-                    sh 'terraform validate'
+                    sh '''
+                    terraform validate
+                    '''
                 }
             }
         }
 
         stage('Terraform Plan') {
-
             steps {
+                dir("${TERRAFORM_DIR}") {
+                    sh """
+                    set -e
+                    export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-
-                    dir("${TERRAFORM_DIR}") {
-
-                        sh """
-                        export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                        terraform plan \
+                    terraform plan \
                         -input=false \
                         -detailed-exitcode \
                         -out=tfplan \
@@ -106,71 +86,45 @@ pipeline {
                         -var="doctor_image=${DOCTOR_IMAGE}" \
                         -var="portal_image=${PORTAL_IMAGE}" \
                         -var="image_tag=${TAG_NAME}"
-                        """
-
-                    }
+                    """
                 }
             }
         }
 
         stage('Terraform Apply') {
-
             steps {
+                dir("${TERRAFORM_DIR}") {
+                    sh '''
+                    set -e
+                    export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-
-                    dir("${TERRAFORM_DIR}") {
-
-                        sh '''
-                        export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                        terraform apply -auto-approve tfplan
-                        '''
-
-                    }
+                    terraform apply -auto-approve tfplan
+                    '''
                 }
             }
         }
 
         stage('Terraform Output') {
-
             steps {
+                dir("${TERRAFORM_DIR}") {
+                    sh '''
+                    export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-
-                    dir("${TERRAFORM_DIR}") {
-
-                        sh '''
-                        export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                        terraform output
-                        terraform output -raw lb_dns_name || true
-                        '''
-
-                    }
+                    terraform output || true
+                    terraform output -raw lb_dns_name || true
+                    '''
                 }
             }
         }
     }
 
     post {
-
         success {
             echo "Deployment Successful"
         }
 
         failure {
-            echo "Deployment Failed"
+            echo "Deployment Failed - Check logs above"
         }
 
         always {
