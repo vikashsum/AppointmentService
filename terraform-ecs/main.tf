@@ -375,7 +375,7 @@ resource "aws_lb" "app" {
 }
 
 resource "aws_lb_target_group" "appointmentservice" {
-  name_prefix  = "appointmentservice-tg-"
+  name_prefix  = "appt-"
   port         = 3002
   protocol     = "HTTP"
   target_type  = "ip"
@@ -396,7 +396,7 @@ resource "aws_lb_target_group" "appointmentservice" {
 }
 
 resource "aws_lb_target_group" "patientservice" {
-  name_prefix  = "patientservice-tg-"
+  name_prefix  = "pat-"
   port         = 3001
   protocol     = "HTTP"
   target_type  = "ip"
@@ -417,7 +417,7 @@ resource "aws_lb_target_group" "patientservice" {
 }
 
 resource "aws_lb_target_group" "doctorservice" {
-  name_prefix  = "doctorservice-tg-"
+  name_prefix  = "doc-"
   port         = 3003
   protocol     = "HTTP"
   target_type  = "ip"
@@ -438,7 +438,7 @@ resource "aws_lb_target_group" "doctorservice" {
 }
 
 resource "aws_lb_target_group" "patientportal" {
-  name_prefix  = "patientportal-tg-"
+  name_prefix  = "port-"
   port         = 80
   protocol     = "HTTP"
   target_type  = "ip"
