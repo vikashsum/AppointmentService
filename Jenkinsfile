@@ -1,19 +1,27 @@
-```groovy
 pipeline {
     agent any
 
     options {
         timestamps()
         ansiColor('xterm')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     parameters {
-        string(name: 'TAG_NAME', defaultValue: 'latest', description: 'Docker image tag')
+        string(
+            name: 'TAG_NAME',
+            defaultValue: 'latest',
+            description: 'Docker image tag'
+        )
     }
 
     environment {
-        AWS_REGION        = "ap-south-1"
-        TERRAFORM_DIR     = "terraform-ecs"
+
+        AWS_REGION = "ap-south-1"
+
+        IMAGE_NAME = "vikash3117/appointmentservice"
+
+        TERRAFORM_DIR = "terraform-ecs"
 
         APPOINTMENT_IMAGE = "vikash3117/appointmentservice"
         PATIENT_IMAGE     = "vikash3117/patientservic"
@@ -25,102 +33,144 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo "====== Checking out repository ======"
+                echo "===== Checkout ====="
                 checkout scm
             }
         }
 
-        stage('Terraform Format') {
+        stage('Build Docker Image') {
             steps {
-                echo "====== Terraform Format ======"
-                dir("${TERRAFORM_DIR}") {
-                    sh 'terraform fmt -recursive'
+                echo "===== Building Docker Image ====="
+
+                sh """
+                docker build \
+                -t appointmentservice:${BUILD_NUMBER} .
+
+                docker images | grep appointmentservice
+                """
+            }
+        }
+
+        stage('Push Docker Image') {
+
+            steps {
+
+                echo "===== Push Docker Image ====="
+
+                withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                )]) {
+
+                    sh """
+                    echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+
+                    docker tag appointmentservice:${BUILD_NUMBER} ${IMAGE_NAME}:${TAG_NAME}
+
+                    docker push ${IMAGE_NAME}:${TAG_NAME}
+
+                    docker logout
+                    """
                 }
             }
         }
 
         stage('Verify AWS Credentials') {
+
             steps {
-                echo "====== Verifying AWS Credentials ======"
+
+                echo "===== Verify AWS Credentials ====="
 
                 withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        \$class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
 
-                    sh '''
-                    export AWS_REGION=${AWS_REGION}
+                    sh """
                     export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                    echo "AWS CLI Version"
                     aws --version
 
-                    echo ""
-                    echo "AWS Configure List"
                     aws configure list
 
-                    echo ""
-                    echo "Checking AWS Identity..."
                     aws sts get-caller-identity
-                    '''
+                    """
                 }
             }
+        }
+
+        stage('Terraform Format') {
+
+            steps {
+
+                dir("${TERRAFORM_DIR}") {
+
+                    sh "terraform fmt -recursive"
+
+                }
+
+            }
+
         }
 
         stage('Terraform Init') {
+
             steps {
 
-                echo "====== Terraform Init ======"
-
                 withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        \$class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
 
                     dir("${TERRAFORM_DIR}") {
 
-                        sh '''
-                        export AWS_REGION=${AWS_REGION}
+                        sh """
                         export AWS_DEFAULT_REGION=${AWS_REGION}
 
                         terraform init -input=false
-                        '''
+                        """
+
                     }
+
                 }
+
             }
+
         }
 
         stage('Terraform Validate') {
+
             steps {
 
-                echo "====== Terraform Validate ======"
-
                 dir("${TERRAFORM_DIR}") {
-                    sh 'terraform validate'
+
+                    sh "terraform validate"
+
                 }
+
             }
+
         }
 
         stage('Terraform Plan') {
+
             steps {
 
-                echo "====== Terraform Plan ======"
-
                 withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        \$class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
 
                     dir("${TERRAFORM_DIR}") {
 
-                        sh '''
-                        export AWS_REGION=${AWS_REGION}
+                        sh """
                         export AWS_DEFAULT_REGION=${AWS_REGION}
 
                         terraform plan \
@@ -131,75 +181,99 @@ pipeline {
                         -var="doctor_image=${DOCTOR_IMAGE}" \
                         -var="portal_image=${PORTAL_IMAGE}" \
                         -var="image_tag=${TAG_NAME}"
-                        '''
+                        """
+
                     }
+
                 }
+
             }
+
         }
 
         stage('Terraform Apply') {
+
             steps {
 
-                echo "====== Terraform Apply ======"
-
                 withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        \$class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-creds',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                 ]]) {
 
                     dir("${TERRAFORM_DIR}") {
 
-                        sh '''
-                        export AWS_REGION=${AWS_REGION}
+                        sh """
                         export AWS_DEFAULT_REGION=${AWS_REGION}
 
                         terraform apply \
-                        -input=false \
                         -auto-approve \
                         tfplan
-                        '''
+                        """
+
                     }
+
                 }
+
             }
+
         }
 
-        stage('Show LoadBalancer') {
-            steps {
+        stage('Show Load Balancer') {
 
-                echo "====== ECS Load Balancer ======"
+            steps {
 
                 dir("${TERRAFORM_DIR}") {
 
-                    sh '''
-                    terraform output
-                    echo ""
-                    echo "LoadBalancer DNS:"
+                    sh """
+
+                    echo "==================================="
+
+                    echo "Application URL"
+
                     terraform output -raw lb_dns_name || true
-                    '''
+
+                    echo "==================================="
+
+                    """
+
                 }
+
             }
+
         }
+
     }
 
     post {
 
         success {
-            echo "===================================="
+
+            echo "=================================="
+
             echo "Deployment Successful"
-            echo "===================================="
+
+            echo "=================================="
+
         }
 
         failure {
-            echo "===================================="
+
+            echo "=================================="
+
             echo "Deployment Failed"
-            echo "===================================="
+
+            echo "=================================="
+
         }
 
         always {
+
             cleanWs()
+
         }
+
     }
+
 }
-```
