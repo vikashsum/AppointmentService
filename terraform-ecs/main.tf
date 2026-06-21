@@ -68,10 +68,10 @@ resource "aws_security_group" "ecs" {
   }
 
   ingress {
-    from_port       = 3001
-    to_port         = 3003
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs.id]
+    from_port = 3001
+    to_port   = 3003
+    protocol  = "tcp"
+    self      = true
   }
 
   egress {
