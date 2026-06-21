@@ -27,8 +27,8 @@ pipeline {
                 echo "Workspace structure:"
                 pwd
                 ls -la
-                echo "Terraform directory check:"
-                ls -la terraform-ecs || true
+                echo "Terraform folder check:"
+                ls -la terraform-ecs
                 '''
             }
         }
@@ -36,26 +36,28 @@ pipeline {
         stage('Terraform Format') {
             steps {
                 dir("${TERRAFORM_DIR}") {
-                    sh '''
-                    terraform fmt -recursive
-                    '''
+                    sh 'terraform fmt -recursive'
                 }
             }
         }
 
         stage('Terraform Init') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh '''
-                    set -e
-                    export AWS_DEFAULT_REGION=${AWS_REGION}
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
 
-                    echo "Running in:"
-                    pwd
-                    ls -la
+                    dir("${TERRAFORM_DIR}") {
+                        sh '''
+                        set -e
+                        export AWS_DEFAULT_REGION=ap-south-1
 
-                    terraform init -reconfigure -input=false
-                    '''
+                        terraform init -reconfigure -input=false
+                        '''
+                    }
                 }
             }
         }
@@ -63,72 +65,78 @@ pipeline {
         stage('Terraform Validate') {
             steps {
                 dir("${TERRAFORM_DIR}") {
-                    sh '''
-                    terraform validate
-                    '''
+                    sh 'terraform validate'
                 }
             }
         }
 
         stage('Terraform Plan') {
-    steps {
-        withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        ]]) {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
 
-            dir("${TERRAFORM_DIR}") {
+                    dir("${TERRAFORM_DIR}") {
+                        sh """
+                        set -e
+                        export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                sh """
-                set -e
-                export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                terraform plan \
-                    -input=false \
-                    -detailed-exitcode \
-                    -out=tfplan \
-                    -var="appointment_image=${APPOINTMENT_IMAGE}" \
-                    -var="patient_image=${PATIENT_IMAGE}" \
-                    -var="doctor_image=${DOCTOR_IMAGE}" \
-                    -var="portal_image=${PORTAL_IMAGE}" \
-                    -var="image_tag=${TAG_NAME}"
-                """
+                        terraform plan \
+                            -input=false \
+                            -detailed-exitcode \
+                            -out=tfplan \
+                            -var="appointment_image=${APPOINTMENT_IMAGE}" \
+                            -var="patient_image=${PATIENT_IMAGE}" \
+                            -var="doctor_image=${DOCTOR_IMAGE}" \
+                            -var="portal_image=${PORTAL_IMAGE}" \
+                            -var="image_tag=${TAG_NAME}"
+                        """
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Terraform Apply') {
-    steps {
-        withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds',
-            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-        ]]) {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
 
-            dir("${TERRAFORM_DIR}") {
-                sh '''
-                set -e
-                export AWS_DEFAULT_REGION=ap-south-1
-                terraform apply -auto-approve tfplan
-                '''
+                    dir("${TERRAFORM_DIR}") {
+                        sh '''
+                        set -e
+                        export AWS_DEFAULT_REGION=ap-south-1
+
+                        terraform apply -auto-approve tfplan
+                        '''
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Terraform Output') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh '''
-                    export AWS_DEFAULT_REGION=${AWS_REGION}
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
 
-                    terraform output || true
-                    terraform output -raw lb_dns_name || true
-                    '''
+                    dir("${TERRAFORM_DIR}") {
+                        sh '''
+                        export AWS_DEFAULT_REGION=ap-south-1
+
+                        terraform output || true
+                        terraform output -raw lb_dns_name || true
+                        '''
+                    }
                 }
             }
         }
