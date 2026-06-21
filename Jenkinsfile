@@ -35,7 +35,7 @@ pipeline {
       steps {
         echo '====== Initializing Terraform ======'
         script {
-          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             dir("${TERRAFORM_DIR}") {
               sh '''
                 export AWS_REGION=${AWS_REGION}
@@ -55,7 +55,7 @@ pipeline {
       steps {
         echo '====== Planning ECS Terraform ======'
         script {
-          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             dir("${TERRAFORM_DIR}") {
               sh '''
                 export AWS_REGION=${AWS_REGION}
@@ -80,7 +80,7 @@ pipeline {
       steps {
         echo '====== Applying ECS Terraform ======'
         script {
-          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             dir("${TERRAFORM_DIR}") {
               sh '''
                 export AWS_REGION=${AWS_REGION}
@@ -100,7 +100,7 @@ pipeline {
       steps {
         echo '====== ECS Load Balancer DNS ======'
         script {
-          withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             dir("${TERRAFORM_DIR}") {
               sh '''
                 export AWS_REGION=${AWS_REGION}
