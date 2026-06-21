@@ -6,7 +6,7 @@ pipeline {
     }
 
     environment {
-        AWS_REGION = "ap-south-1"
+        AWS_REGION = "us-east-1"
         TERRAFORM_DIR = "terraform-ecs"
 
         APPOINTMENT_IMAGE = "vikash3117/appointmentservice"
