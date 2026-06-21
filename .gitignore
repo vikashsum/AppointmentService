@@ -1,0 +1,10 @@
+# Ignore Terraform local state and plugin caches
+terraform-ecs/.terraform/
+terraform/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# Ignore local OS files
+.DS_Store
+Thumbs.db
