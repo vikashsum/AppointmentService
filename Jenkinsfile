@@ -13,6 +13,8 @@ pipeline {
         PATIENT_IMAGE     = "vikash3117/patientservic"
         DOCTOR_IMAGE      = "vikash3117/doctorservice"
         PORTAL_IMAGE      = "vikash3117/patient-portal"
+
+        TF_IN_AUTOMATION = "true"
     }
 
     stages {
@@ -43,8 +45,6 @@ pipeline {
                     sh '''
                     export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                    aws --version
-                    aws configure list
                     aws sts get-caller-identity
                     '''
                 }
@@ -65,7 +65,7 @@ pipeline {
                         sh '''
                         export AWS_DEFAULT_REGION=${AWS_REGION}
 
-                        terraform init -input=false
+                        terraform init -reconfigure -input=false
                         '''
 
                     }
@@ -82,6 +82,7 @@ pipeline {
         }
 
         stage('Terraform Plan') {
+
             steps {
 
                 withCredentials([[
@@ -97,23 +98,23 @@ pipeline {
                         export AWS_DEFAULT_REGION=${AWS_REGION}
 
                         terraform plan \
-                          -input=false \
-                          -out=tfplan \
-                          -var="appointment_image=${APPOINTMENT_IMAGE}" \
-                          -var="patient_image=${PATIENT_IMAGE}" \
-                          -var="doctor_image=${DOCTOR_IMAGE}" \
-                          -var="portal_image=${PORTAL_IMAGE}" \
-                          -var="image_tag=${TAG_NAME}"
+                        -input=false \
+                        -detailed-exitcode \
+                        -out=tfplan \
+                        -var="appointment_image=${APPOINTMENT_IMAGE}" \
+                        -var="patient_image=${PATIENT_IMAGE}" \
+                        -var="doctor_image=${DOCTOR_IMAGE}" \
+                        -var="portal_image=${PORTAL_IMAGE}" \
+                        -var="image_tag=${TAG_NAME}"
                         """
 
                     }
-
                 }
-
             }
         }
 
         stage('Terraform Apply') {
+
             steps {
 
                 withCredentials([[
@@ -132,36 +133,44 @@ pipeline {
                         '''
 
                     }
-
                 }
-
             }
         }
 
-        stage('Show Load Balancer') {
+        stage('Terraform Output') {
+
             steps {
 
-                dir("${TERRAFORM_DIR}") {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-creds',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                ]]) {
 
-                    sh '''
-                    terraform output
-                    terraform output -raw lb_dns_name || true
-                    '''
+                    dir("${TERRAFORM_DIR}") {
 
+                        sh '''
+                        export AWS_DEFAULT_REGION=${AWS_REGION}
+
+                        terraform output
+                        terraform output -raw lb_dns_name || true
+                        '''
+
+                    }
                 }
-
             }
         }
-
     }
 
     post {
+
         success {
-            echo 'Deployment Successful'
+            echo "Deployment Successful"
         }
 
         failure {
-            echo 'Deployment Failed'
+            echo "Deployment Failed"
         }
 
         always {
