@@ -71,38 +71,54 @@ pipeline {
         }
 
         stage('Terraform Plan') {
-            steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh """
-                    set -e
-                    export AWS_DEFAULT_REGION=${AWS_REGION}
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
 
-                    terraform plan \
-                        -input=false \
-                        -detailed-exitcode \
-                        -out=tfplan \
-                        -var="appointment_image=${APPOINTMENT_IMAGE}" \
-                        -var="patient_image=${PATIENT_IMAGE}" \
-                        -var="doctor_image=${DOCTOR_IMAGE}" \
-                        -var="portal_image=${PORTAL_IMAGE}" \
-                        -var="image_tag=${TAG_NAME}"
-                    """
-                }
+            dir("${TERRAFORM_DIR}") {
+
+                sh """
+                set -e
+                export AWS_DEFAULT_REGION=${AWS_REGION}
+
+                terraform plan \
+                    -input=false \
+                    -detailed-exitcode \
+                    -out=tfplan \
+                    -var="appointment_image=${APPOINTMENT_IMAGE}" \
+                    -var="patient_image=${PATIENT_IMAGE}" \
+                    -var="doctor_image=${DOCTOR_IMAGE}" \
+                    -var="portal_image=${PORTAL_IMAGE}" \
+                    -var="image_tag=${TAG_NAME}"
+                """
             }
         }
+    }
+}
 
         stage('Terraform Apply') {
-            steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh '''
-                    set -e
-                    export AWS_DEFAULT_REGION=${AWS_REGION}
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds',
+            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+        ]]) {
 
-                    terraform apply -auto-approve tfplan
-                    '''
-                }
+            dir("${TERRAFORM_DIR}") {
+                sh '''
+                set -e
+                export AWS_DEFAULT_REGION=ap-south-1
+                terraform apply -auto-approve tfplan
+                '''
             }
         }
+    }
+}
 
         stage('Terraform Output') {
             steps {
