@@ -2,55 +2,31 @@ pipeline {
   agent any
 
   parameters {
-    string(name: 'TAG_NAME', defaultValue: 'latest', description: 'Docker image tag to push (e.g. tagname)')
+    string(name: 'TAG_NAME', defaultValue: 'latest', description: 'Docker image tag to deploy from Docker Hub')
   }
 
   environment {
-    DOCKER_IMAGE = "appointmentservice:${BUILD_NUMBER}"
-    DOCKER_REGISTRY = 'docker.io'
-    DOCKER_REPO = 'vikash3117/appointmentservice'
-    REPO_URL = 'https://github.com/vikashsum/AppointmentService.git'
-    TERRAFORM_DIR = 'terraform'
-    K8S_DIR = 'deployment/k8s'
-    EKS_CLUSTER_NAME = 'appointmentservice-eks-cluster'
-    AWS_REGION = 'us-east-1'
+    AWS_REGION    = 'us-east-1'
+    TERRAFORM_DIR = 'terraform-ecs'
+    APPOINTMENT_IMAGE = 'vikash3117/appointmentservice'
+    PATIENT_IMAGE     = 'vikash3117/patientservic'
+    DOCTOR_IMAGE      = 'vikash3117/doctorservice'
+    PORTAL_IMAGE      = 'vikash3117/patient-portal'
   }
 
   stages {
     stage('Checkout') {
       steps {
         echo '====== Checking out repository ======'
-        git branch: 'main', url: "${REPO_URL}"
+        checkout scm
       }
     }
 
-    stage('Build') {
+    stage('Terraform Format') {
       steps {
-        echo '====== Building Docker image ======'
-        sh 'docker build -t ${DOCKER_IMAGE} .'
-        sh 'docker images | grep appointmentservice'
-      }
-    }
-
-    stage('Push') {
-      steps {
-        echo '====== Pushing to Docker Hub ======'
-        script {
-          withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-            sh '''
-              echo "Logging into Docker Hub..."
-              echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
-              
-              echo "Tagging image..."
-              IMAGE=${DOCKER_REPO}:${TAG_NAME}
-              docker tag ${DOCKER_IMAGE} ${IMAGE}
-
-              echo "Pushing image to Docker Hub..."
-              docker push ${IMAGE}
-
-              echo "Image pushed successfully: ${IMAGE}"
-            '''
-          }
+        echo '====== Formatting Terraform ======'
+        dir("${TERRAFORM_DIR}") {
+          sh 'terraform fmt -recursive'
         }
       }
     }
@@ -66,25 +42,23 @@ pipeline {
 
     stage('Terraform Plan') {
       steps {
-        echo '====== Planning Terraform ======'
+        echo '====== Planning ECS Terraform ======'
         dir("${TERRAFORM_DIR}") {
-          sh 'terraform plan -out=tfplan -input=false'
+          sh '''
+            terraform plan -out=tfplan -input=false \
+              -var "appointment_image=${APPOINTMENT_IMAGE}" \
+              -var "patient_image=${PATIENT_IMAGE}" \
+              -var "doctor_image=${DOCTOR_IMAGE}" \
+              -var "portal_image=${PORTAL_IMAGE}" \
+              -var "image_tag=${TAG_NAME}"
+          '''
         }
       }
     }
 
     stage('Terraform Apply') {
       steps {
-        echo '====== Applying Terraform ======'
-        dir("${TERRAFORM_DIR}") {
-          sh 'terraform apply -input=false -auto-approve tfplan'
-        }
-      }
-    }
-
-    stage('Deploy to EKS') {
-      steps {
-        echo '====== Deploying to EKS ======'
+        echo '====== Applying ECS Terraform ======'
         script {
           withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh '''
@@ -92,11 +66,19 @@ pipeline {
               export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
               export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
-              aws eks update-kubeconfig --region ${AWS_REGION} --name ${EKS_CLUSTER_NAME}
-              kubectl apply -k ${K8S_DIR}
-              kubectl rollout status deployment/appointmentservice --namespace default --timeout=180s
+              cd ${TERRAFORM_DIR}
+              terraform apply -input=false -auto-approve tfplan
             '''
           }
+        }
+      }
+    }
+
+    stage('Show Load Balancer') {
+      steps {
+        echo '====== ECS Load Balancer DNS ======'
+        dir("${TERRAFORM_DIR}") {
+          sh 'terraform output -raw lb_dns_name'
         }
       }
     }
@@ -104,10 +86,10 @@ pipeline {
 
   post {
     success {
-      echo '✅ Pipeline completed successfully'
+      echo '✅ ECS/Fargate deployment completed successfully'
     }
     failure {
-      echo '❌ Pipeline failed'
+      echo '❌ ECS/Fargate deployment failed'
     }
   }
 }

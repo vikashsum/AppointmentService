@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patient-portal
+  labels:
+    app: patient-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: patient-portal
+  template:
+    metadata:
+      labels:
+        app: patient-portal
+    spec:
+      containers:
+        - name: patient-portal
+          image: vikash3117/patient-portal:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: VITE_API_URL
+              value: "http://patientservice:3001/api/v1"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patient-portal
+spec:
+  selector:
+    app: patient-portal
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer

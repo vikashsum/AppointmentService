@@ -1,0 +1,48 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: appointmentservice-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+spec:
+  rules:
+    - host: appointmentservice.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: appointmentservice
+                port:
+                  number: 3002
+    - host: patientservice.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: patientservice
+                port:
+                  number: 3001
+    - host: doctorservice.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: doctorservice
+                port:
+                  number: 3003
+    - host: patient-portal.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: patient-portal
+                port:
+                  number: 80

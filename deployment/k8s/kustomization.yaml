@@ -1,2 +1,6 @@
 resources:
   - appointmentservice-deployment.yaml
+  - patientservice-deployment.yaml
+  - patientportal-deployment.yaml
+  - doctorservice-deployment.yaml
+  - service-ingress.yaml

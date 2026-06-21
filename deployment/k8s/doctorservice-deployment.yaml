@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: appointmentservice
+  name: doctorservice
   labels:
-    app: appointmentservice
+    app: doctorservice
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: appointmentservice
+      app: doctorservice
   template:
     metadata:
       labels:
-        app: appointmentservice
+        app: doctorservice
     spec:
       containers:
-        - name: appointmentservice
-          image: vikash3117/appointmentservice:latest
+        - name: doctorservice
+          image: vikash3117/doctorservice:latest
           ports:
-            - containerPort: 3002
+            - containerPort: 3003
           env:
             - name: NODE_ENV
               value: "production"
@@ -31,33 +31,29 @@ spec:
             - name: DB_NAME
               value: "your-db-name"
             - name: DB_DIALECT
-              value: "mysql"
-            - name: PATIENT_SERVICE_URL
-              value: "http://patientservice:3001"
-            - name: DOCTOR_SERVICE_URL
-              value: "http://doctorservice:3003"
+              value: "postgres"
           readinessProbe:
             httpGet:
               path: /api/v1/health
-              port: 3002
+              port: 3003
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/v1/health
-              port: 3002
+              port: 3003
             initialDelaySeconds: 30
             periodSeconds: 15
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: appointmentservice
+  name: doctorservice
 spec:
   selector:
-    app: appointmentservice
+    app: doctorservice
   ports:
     - protocol: TCP
-      port: 3002
-      targetPort: 3002
+      port: 3003
+      targetPort: 3003
   type: ClusterIP
