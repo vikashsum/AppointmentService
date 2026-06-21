@@ -18,6 +18,8 @@ provider "aws" {
   secret_key              = var.aws_secret_key != "" ? var.aws_secret_key : null
   shared_credentials_file = var.aws_shared_credentials_file != "" ? var.aws_shared_credentials_file : null
   profile                 = var.aws_profile != "" ? var.aws_profile : null
+>>>>>>> 0c06e31 (update)
+>>>>>>> 9aca5fc (update)
 }
 
 provider "kubernetes" {

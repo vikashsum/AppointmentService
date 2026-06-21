@@ -504,11 +504,3 @@ resource "aws_lb_listener_rule" "patientportal" {
     }
   }
 }
-
-output "ecs_cluster_id" {
-  value = aws_ecs_cluster.main.id
-}
-
-output "load_balancer_dns_name" {
-  value = aws_lb.app.dns_name
-}
