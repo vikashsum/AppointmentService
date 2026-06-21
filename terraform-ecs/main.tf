@@ -375,10 +375,11 @@ resource "aws_lb" "app" {
 }
 
 resource "aws_lb_target_group" "appointmentservice" {
-  name     = "appointmentservice-tg"
-  port     = 3002
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "appointmentservice-tg"
+  port        = 3002
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.main.id
   health_check {
     path                = "/api/v1/health"
     protocol            = "HTTP"
@@ -390,10 +391,11 @@ resource "aws_lb_target_group" "appointmentservice" {
 }
 
 resource "aws_lb_target_group" "patientservice" {
-  name     = "patientservice-tg"
-  port     = 3001
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "patientservice-tg"
+  port        = 3001
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.main.id
   health_check {
     path                = "/api/v1/health"
     protocol            = "HTTP"
@@ -405,10 +407,11 @@ resource "aws_lb_target_group" "patientservice" {
 }
 
 resource "aws_lb_target_group" "doctorservice" {
-  name     = "doctorservice-tg"
-  port     = 3003
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "doctorservice-tg"
+  port        = 3003
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.main.id
   health_check {
     path                = "/api/v1/health"
     protocol            = "HTTP"
@@ -420,10 +423,11 @@ resource "aws_lb_target_group" "doctorservice" {
 }
 
 resource "aws_lb_target_group" "patientportal" {
-  name     = "patientportal-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  name        = "patientportal-tg"
+  port        = 80
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = aws_vpc.main.id
   health_check {
     path                = "/"
     protocol            = "HTTP"
