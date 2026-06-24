@@ -1,48 +1,40 @@
-# Multi-stage build for appointmentservice (Node.js/Express)
-
-# Stage 1: Build and test
+# Stage 1: Build
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files first for cache
 COPY package*.json ./
-
-# Install dependencies (dev + prod). Use npm install because no package-lock.json exists.
 RUN npm install --silent
 
-# Copy application source
 COPY . .
 
-# Run linting and tests (allow failures to surface in CI logs)
 RUN npm run lint || true
 RUN npm run test || true
 
 
-# Stage 2: Production runtime
+# Stage 2: Production
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install curl for health checks
 RUN apk add --no-cache curl
 
-# Copy built app and node_modules from builder
 COPY --from=builder /app /app
 
-# Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 && \
     chown -R nodejs:nodejs /app
 
 USER nodejs
 
-# Health check (adjust path if your app exposes a different endpoint)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3002/api/v1/health || exit 1
+# IMPORTANT: match ECS port
+ENV PORT=3002
+ENV NODE_ENV=production
 
 EXPOSE 3002
 
-ENV NODE_ENV=production
+# FIXED HEALTHCHECK (your real route)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:3002/api/v1/health || exit 1
 
 CMD ["npm", "start"]
