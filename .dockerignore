@@ -1,0 +1,9 @@
+node_modules
+.git
+terraform
+terraform-ecs
+deployment
+tests
+nvm-windows
+.env
+*.log
