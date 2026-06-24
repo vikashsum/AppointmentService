@@ -1,20 +1,14 @@
 pipeline {
     agent any
 
-    parameters {
-        string(name: 'TAG_NAME', defaultValue: 'latest', description: 'Docker image tag')
-    }
-
     environment {
-        AWS_REGION = "us-east-1"
-        TERRAFORM_DIR = "terraform-ecs"
+        AWS_REGION = 'ap-south-1'
+        AWS_ACCOUNT_ID = '772706200970'
+        ECR_REPO = 'appointment-service'
+        IMAGE_TAG = 'latest'
 
-        APPOINTMENT_IMAGE = "vikash3117/appointmentservice"
-        PATIENT_IMAGE     = "vikash3117/patientservic"
-        DOCTOR_IMAGE      = "vikash3117/doctorservice"
-        PORTAL_IMAGE      = "vikash3117/patient-portal"
-
-        TF_IN_AUTOMATION = "true"
+        ECS_CLUSTER = 'hospital-microservices-cluster'
+        ECS_SERVICE = 'appointment-service'
     }
 
     stages {
@@ -22,137 +16,55 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
 
+        stage('Build Docker Image') {
+            steps {
                 sh '''
-                echo "Workspace structure:"
-                pwd
-                ls -la
-                echo "Terraform folder check:"
-                ls -la terraform-ecs
+                docker build -t $ECR_REPO:$IMAGE_TAG .
                 '''
             }
         }
 
-        stage('Terraform Format') {
+        stage('Login to ECR') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh 'terraform fmt -recursive'
-                }
+                sh '''
+                aws ecr get-login-password --region $AWS_REGION | \
+                docker login --username AWS --password-stdin \
+                $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                '''
             }
         }
 
-        stage('Terraform Init') {
+        stage('Push Image') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
+                sh '''
+                docker tag $ECR_REPO:$IMAGE_TAG \
+                $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
 
-                    dir("${TERRAFORM_DIR}") {
-                        sh '''
-                        set -e
-                        export AWS_DEFAULT_REGION=ap-south-1
-
-                        terraform init -reconfigure -input=false
-                        '''
-                    }
-                }
+                docker push \
+                $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+                '''
             }
         }
 
-        stage('Terraform Validate') {
+        stage('Deploy to ECS') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh 'terraform validate'
-                }
-            }
-        }
-
-        stage('Terraform Plan') {
-            steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-
-                    dir("${TERRAFORM_DIR}") {
-                        sh """
-                        set -e
-                        export AWS_DEFAULT_REGION=${AWS_REGION}
-
-                        terraform plan \
-                            -input=false \
-                            -detailed-exitcode \
-                            -out=tfplan \
-                            -var="appointment_image=${APPOINTMENT_IMAGE}" \
-                            -var="patient_image=${PATIENT_IMAGE}" \
-                            -var="doctor_image=${DOCTOR_IMAGE}" \
-                            -var="portal_image=${PORTAL_IMAGE}" \
-                            -var="image_tag=${TAG_NAME}"
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-
-                    dir("${TERRAFORM_DIR}") {
-                        sh '''
-                        set -e
-                        export AWS_DEFAULT_REGION=ap-south-1
-
-                        terraform apply -auto-approve tfplan
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Output') {
-            steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                ]]) {
-
-                    dir("${TERRAFORM_DIR}") {
-                        sh '''
-                        export AWS_DEFAULT_REGION=ap-south-1
-
-                        terraform output || true
-                        terraform output -raw lb_dns_name || true
-                        '''
-                    }
-                }
+                sh '''
+                aws ecs update-service \
+                  --cluster $ECS_CLUSTER \
+                  --service $ECS_SERVICE \
+                  --force-new-deployment \
+                  --region $AWS_REGION
+                '''
             }
         }
     }
 
     post {
-        success {
-            echo "Deployment Successful"
-        }
-
-        failure {
-            echo "Deployment Failed - Check logs above"
-        }
-
         always {
-            cleanWs()
+            sh 'docker image prune -f'
         }
     }
 }
